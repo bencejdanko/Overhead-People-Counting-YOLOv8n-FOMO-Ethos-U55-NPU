@@ -35,6 +35,7 @@ def object_recall(y_true, y_pred):
 def build_fomo_model(input_shape=(192, 192, 3), alpha=0.35, weights="imagenet", num_classes=2):
     inputs = layers.Input(shape=input_shape, name="image_input")
     backbone = applications.MobileNetV2(
+        input_shape=input_shape,
         input_tensor=inputs,
         alpha=alpha,
         include_top=False,
