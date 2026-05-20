@@ -1,34 +1,74 @@
 import tensorflow as tf
 from tensorflow.keras import layers, models, applications
 
-def production_weighted_bce_loss(pos_weight=24.0):
-    def loss(y_true, y_pred_logits):
-        return tf.nn.weighted_cross_entropy_with_logits(
-            labels=y_true,
-            logits=y_pred_logits,
-            pos_weight=pos_weight
+def fomo_weighted_categorical_crossentropy(object_weight=100.0):
+    def loss(y_true, y_pred):
+        y_pred = tf.clip_by_value(
+            y_pred,
+            tf.keras.backend.epsilon(),
+            1.0 - tf.keras.backend.epsilon(),
         )
+        class_weights = tf.constant([1.0, object_weight], dtype=y_pred.dtype)
+        weights = tf.reduce_sum(y_true * class_weights, axis=-1)
+        cross_entropy = -tf.reduce_sum(y_true * tf.math.log(y_pred), axis=-1)
+        return tf.reduce_mean(cross_entropy * weights)
+
     return loss
 
-def build_and_compile_fomo(input_shape=(192, 192, 3), lr=0.0005, pos_weight=24.0):
+
+def object_precision(y_true, y_pred):
+    y_true_obj = tf.cast(tf.argmax(y_true, axis=-1) == 1, tf.float32)
+    y_pred_obj = tf.cast(tf.argmax(y_pred, axis=-1) == 1, tf.float32)
+    true_positives = tf.reduce_sum(y_true_obj * y_pred_obj)
+    predicted_positives = tf.reduce_sum(y_pred_obj)
+    return true_positives / (predicted_positives + tf.keras.backend.epsilon())
+
+
+def object_recall(y_true, y_pred):
+    y_true_obj = tf.cast(tf.argmax(y_true, axis=-1) == 1, tf.float32)
+    y_pred_obj = tf.cast(tf.argmax(y_pred, axis=-1) == 1, tf.float32)
+    true_positives = tf.reduce_sum(y_true_obj * y_pred_obj)
+    actual_positives = tf.reduce_sum(y_true_obj)
+    return true_positives / (actual_positives + tf.keras.backend.epsilon())
+
+
+def build_fomo_model(input_shape=(192, 192, 3), alpha=0.35, weights="imagenet", num_classes=2):
     inputs = layers.Input(shape=input_shape, name="image_input")
     backbone = applications.MobileNetV2(
-        input_tensor=inputs, alpha=0.35, include_top=False, weights='imagenet'
+        input_tensor=inputs,
+        alpha=alpha,
+        include_top=False,
+        weights=weights,
     )
     x = backbone.get_layer('block_6_expand_relu').output
-    outputs = layers.Conv2D(filters=1, kernel_size=1, activation=None, name='fomo_head')(x)
-    
-    model = models.Model(inputs=inputs, outputs=outputs, name="FOMO_Production")
+    outputs = layers.Conv2D(
+        filters=num_classes,
+        kernel_size=1,
+        activation="softmax",
+        name="fomo_head",
+    )(x)
+    return models.Model(inputs=inputs, outputs=outputs, name="FOMO_Production")
+
+
+def build_and_compile_fomo(input_shape=(192, 192, 3), lr=0.001, object_weight=100.0):
+    model = build_fomo_model(input_shape=input_shape)
     
     metrics = [
-        tf.keras.metrics.BinaryCrossentropy(from_logits=True, name="loss_bce"),
-        tf.keras.metrics.Precision(thresholds=0.0, name="precision"),
-        tf.keras.metrics.Recall(thresholds=0.0, name="recall")
+        object_precision,
+        object_recall,
     ]
     
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=lr),
-        loss=production_weighted_bce_loss(pos_weight=pos_weight),
+        loss=fomo_weighted_categorical_crossentropy(object_weight=object_weight),
         metrics=metrics
     )
     return model
+
+
+def fomo_weighted_bce(pos_weight=100.0):
+    return fomo_weighted_categorical_crossentropy(object_weight=pos_weight)
+
+
+def production_weighted_bce_loss(pos_weight=100.0):
+    return fomo_weighted_categorical_crossentropy(object_weight=pos_weight)
