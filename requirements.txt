@@ -1,0 +1,5 @@
+transformers>=4.40.0
+accelerate>=0.30.0
+opencv-python
+matplotlib
+datasets
