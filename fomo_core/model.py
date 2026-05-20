@@ -32,7 +32,13 @@ def object_recall(y_true, y_pred):
     return true_positives / (actual_positives + tf.keras.backend.epsilon())
 
 
-def build_fomo_model(input_shape=(192, 192, 3), alpha=0.35, weights="imagenet", num_classes=2):
+def build_fomo_model(
+    input_shape=(192, 192, 3),
+    alpha=0.35,
+    weights="imagenet",
+    num_classes=2,
+    backbone_layer="block_6_expand_relu",
+):
     inputs = layers.Input(shape=input_shape, name="image_input")
     backbone = applications.MobileNetV2(
         input_shape=input_shape,
@@ -41,7 +47,7 @@ def build_fomo_model(input_shape=(192, 192, 3), alpha=0.35, weights="imagenet", 
         include_top=False,
         weights=weights,
     )
-    x = backbone.get_layer('block_6_expand_relu').output
+    x = backbone.get_layer(backbone_layer).output
     outputs = layers.Conv2D(
         filters=num_classes,
         kernel_size=1,
@@ -53,11 +59,21 @@ def build_fomo_model(input_shape=(192, 192, 3), alpha=0.35, weights="imagenet", 
 
 def build_and_compile_fomo(
     input_shape=(192, 192, 3),
+    alpha=0.35,
+    weights="imagenet",
+    num_classes=2,
+    backbone_layer="block_6_expand_relu",
     lr=0.001,
     background_weight=1.0,
     object_weight=100.0,
 ):
-    model = build_fomo_model(input_shape=input_shape)
+    model = build_fomo_model(
+        input_shape=input_shape,
+        alpha=alpha,
+        weights=weights,
+        num_classes=num_classes,
+        backbone_layer=backbone_layer,
+    )
     
     metrics = [
         object_precision,
