@@ -1,4 +1,5 @@
 from io import BytesIO
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 import tensorflow as tf
@@ -67,3 +68,14 @@ def load_pil_image(image_value):
             return Image.open(image_value["path"]).convert("RGB")
 
     raise TypeError(f"Unsupported image value: {type(image_value)!r}")
+
+
+def build_arrays_from_hf_dataset(builder, hf_dataset, split_name, num_workers=8):
+    print(f"Extracting {split_name} features...")
+    examples = list(hf_dataset)
+
+    with ThreadPoolExecutor(max_workers=num_workers) as executor:
+        processed = list(executor.map(builder.process_example, examples))
+
+    images, targets = zip(*processed)
+    return np.stack(images), np.stack(targets)
