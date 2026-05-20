@@ -1,14 +1,14 @@
 import tensorflow as tf
 from tensorflow.keras import layers, models, applications
 
-def fomo_weighted_categorical_crossentropy(object_weight=100.0):
+def fomo_weighted_categorical_crossentropy(background_weight=1.0, object_weight=100.0):
     def loss(y_true, y_pred):
         y_pred = tf.clip_by_value(
             y_pred,
             tf.keras.backend.epsilon(),
             1.0 - tf.keras.backend.epsilon(),
         )
-        class_weights = tf.constant([1.0, object_weight], dtype=y_pred.dtype)
+        class_weights = tf.constant([background_weight, object_weight], dtype=y_pred.dtype)
         weights = tf.reduce_sum(y_true * class_weights, axis=-1)
         cross_entropy = -tf.reduce_sum(y_true * tf.math.log(y_pred), axis=-1)
         return tf.reduce_mean(cross_entropy * weights)
@@ -50,7 +50,12 @@ def build_fomo_model(input_shape=(192, 192, 3), alpha=0.35, weights="imagenet", 
     return models.Model(inputs=inputs, outputs=outputs, name="FOMO_Production")
 
 
-def build_and_compile_fomo(input_shape=(192, 192, 3), lr=0.001, object_weight=100.0):
+def build_and_compile_fomo(
+    input_shape=(192, 192, 3),
+    lr=0.001,
+    background_weight=1.0,
+    object_weight=100.0,
+):
     model = build_fomo_model(input_shape=input_shape)
     
     metrics = [
@@ -60,7 +65,10 @@ def build_and_compile_fomo(input_shape=(192, 192, 3), lr=0.001, object_weight=10
     
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=lr),
-        loss=fomo_weighted_categorical_crossentropy(object_weight=object_weight),
+        loss=fomo_weighted_categorical_crossentropy(
+            background_weight=background_weight,
+            object_weight=object_weight,
+        ),
         metrics=metrics
     )
     return model
