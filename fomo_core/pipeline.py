@@ -79,3 +79,56 @@ def build_arrays_from_hf_dataset(builder, hf_dataset, split_name, num_workers=8)
 
     images, targets = zip(*processed)
     return np.stack(images), np.stack(targets)
+
+
+def iter_processed_hf_dataset(builder, hf_dataset):
+    for example in hf_dataset:
+        yield builder.process_example(example)
+
+
+def build_tf_dataset_from_hf_dataset(builder, hf_dataset):
+    output_signature = (
+        tf.TensorSpec(
+            shape=(builder.input_size, builder.input_size, 3),
+            dtype=tf.float32,
+        ),
+        tf.TensorSpec(
+            shape=(builder.grid_size, builder.grid_size, builder.num_classes),
+            dtype=tf.float32,
+        ),
+    )
+    return tf.data.Dataset.from_generator(
+        lambda: iter_processed_hf_dataset(builder, hf_dataset),
+        output_signature=output_signature,
+    )
+
+
+def build_tf_dataset_from_hf_datasets(builder, hf_datasets):
+    datasets = [
+        build_tf_dataset_from_hf_dataset(builder, hf_dataset)
+        for hf_dataset in hf_datasets
+    ]
+    if not datasets:
+        raise ValueError("At least one Hugging Face dataset is required")
+
+    dataset = datasets[0]
+    for next_dataset in datasets[1:]:
+        dataset = dataset.concatenate(next_dataset)
+    return dataset
+
+
+def build_sample_arrays_from_hf_datasets(builder, hf_datasets, sample_count=16):
+    images = []
+    targets = []
+    for hf_dataset in hf_datasets:
+        for example in hf_dataset:
+            image, target = builder.process_example(example)
+            images.append(image)
+            targets.append(target)
+            if len(images) >= sample_count:
+                return np.stack(images), np.stack(targets)
+
+    if not images:
+        raise ValueError("Could not build samples from empty datasets")
+
+    return np.stack(images), np.stack(targets)
