@@ -17,7 +17,7 @@ def replace_torch_activations_with_relu6(module):
 
 def train_libreyolo_model(
     data_yaml: str | Path,
-    model_ref="yolox-n",
+    model_ref="LibreYOLOXn.pt",
     size="n",
     epochs=100,
     batch=16,
