@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+import sys
 from pathlib import Path
 
 
@@ -28,6 +29,11 @@ def train_libreyolo_model(
     relu6=False,
     **train_kwargs,
 ):
+    repo_root = Path(__file__).resolve().parents[1]
+    local_libreyolo = repo_root / "libreyolo"
+    if local_libreyolo.exists():
+        sys.path.insert(0, str(local_libreyolo))
+
     from libreyolo import LibreYOLO
 
     model = LibreYOLO(model_ref, size=size, device=device)
