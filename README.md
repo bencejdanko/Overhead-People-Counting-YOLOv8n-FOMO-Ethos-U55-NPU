@@ -1,6 +1,6 @@
 # Models for Overhead People Counting for the Ethos U55 NPU
 
-## YOLOv8n Model Summary
+## YOLOX Nano Model Summary
 
 
 
