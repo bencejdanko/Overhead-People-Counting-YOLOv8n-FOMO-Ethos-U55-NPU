@@ -1,8 +1,10 @@
-# FOMO People Counting
+# Models for Overhead People Counting for the Ethos U55 NPU
 
-## Model Summary
+## YOLOv8n Model Summary
 
-The model is located at `fomo_production_int8.tflite`.
+
+
+## FOMO Model Summary
 
 ```
 Network summary for fomo_production_int8
